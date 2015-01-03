@@ -224,11 +224,15 @@ func (m MonsterClient) Options(symbols []string) (options []QuoteOption, err err
 	var chain OptionChainResponse
 	xml.Unmarshal(optionsresp, &chain)
 
-	//fmt.Printf("Body was : %s\n", optionsresp)
-	col := chain.Items[0].OptionCollection[0]
+	fmt.Printf("Items are : %s\n", chain.Items)
+	for _, items := range chain.Items {
+	  for _, strikePair := range items.OptionCollection {
+	    options = append(options, strikePair.Call)
+	    options = append(options, strikePair.Put)
+	  }
+	}
 	// TODO: Handle errors
 	//xbyt, _ := xml.Marshal(col)
-	options = append(options, col.Call)
 	return options, nil
 }
 

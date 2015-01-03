@@ -92,7 +92,6 @@ type QuoteOptionItem struct {
 	ExpiryLabel string `xml:"expiryLabel"`
 	ExpiryType string `xml:"expiryType"`
 	OptionCollection []QuoteOptionStrikePair `xml:"option_Collection"`
-
 }
 
 type QuoteOptionStrikePair struct {
@@ -183,6 +182,7 @@ func (m MonsterClient) Auth() bool {
 func (m MonsterClient) Post(path string, payload []byte) (response_body []byte, err error) {
 	req_url := strings.Join([]string{"https://", m.config.APIHost, path}, "")
 	req, err := http.NewRequest("POST", req_url, bytes.NewReader(payload))
+	// TODO: Handle errors
 	req.Header.Add("Accept", "text/xml")
 	req.Header.Add("Content-Type", "text/xml")
 	req.Header.Add("sourceapp", m.config.SourceApp)
@@ -200,8 +200,39 @@ func (m MonsterClient) Post(path string, payload []byte) (response_body []byte, 
 	return body, nil
 }
 
-func main() {
+func (m MonsterClient) Quote(symbol string) (quotes []QuoteItem, err error) {
+	var reqData QuoteRequest
+	qitem := QuoteItem{Symbol: symbol, InstrumentType: "Equity"}
+	reqData.Items = append(reqData.Items, qitem)
+	// TODO: Handle errors
+	payload, err := xml.Marshal(reqData)
+	// TODO: Handle errors
+	quoteresp, _ := m.Post("/services/quotesService", payload)
+	var qr QuoteResponse
+	xml.Unmarshal(quoteresp, &qr)
+	return qr.Items, nil
+}
 
+func (m MonsterClient) Options(symbols []string) (options []QuoteOption, err error) {
+	var optData OptionChainRequest
+	optData.Symbols = append(optData.Symbols, "IBM")
+	optData.Symbols = append(optData.Symbols, "AAPL")
+	// TODO: Handle errors
+	opayload, err := xml.Marshal(optData)
+	//fmt.Printf("Option request payload is: %s", opayload)
+	optionsresp, _ := m.Post("/services/quotesOptionService", opayload)
+	var chain OptionChainResponse
+	xml.Unmarshal(optionsresp, &chain)
+
+	//fmt.Printf("Body was : %s\n", optionsresp)
+	col := chain.Items[0].OptionCollection[0]
+	// TODO: Handle errors
+	//xbyt, _ := xml.Marshal(col)
+	options = append(options, col.Call)
+	return options, nil
+}
+
+func main() {
 	config := Config{}
 	config.SocksProxyAddress = os.Getenv("SOCKS_PROXY_ADDR")
 	config.Username = os.Getenv("MONSTER_USER")
@@ -227,28 +258,6 @@ func main() {
 		account: &AuthResponse{},
 	}
 	client.Auth()
-
-	//var reqData QuoteRequest
-	//qitem := QuoteItem{Symbol: "IBM", InstrumentType: "Equity"}
-	//reqData.Items = append(reqData.Items, qitem)
-	//payload, err := xml.Marshal(reqData)
-	//quoteresp, _ := client.Post("/services/quotesService", payload)
-	//var quotes QuoteResponse
-	//xml.Unmarshal(quoteresp, &quotes)
-
-	var optData OptionChainRequest
-	optData.Symbols = append(optData.Symbols, "IBM")
-	optData.Symbols = append(optData.Symbols, "AAPL")
-	opayload, err := xml.Marshal(optData)
-	fmt.Printf("Option request payload is: %s", opayload)
-	optionsresp, _ := client.Post("/services/quotesOptionService", opayload)
-	var chain OptionChainResponse
-	xml.Unmarshal(optionsresp, &chain)
-
-	//fmt.Printf("Body was : %s\n", optionsresp)
-	col := chain.Items[0].OptionCollection[0]
-	xbyt, _ := xml.Marshal(col)
-	fmt.Printf("options chain : %v\n", col)
-	fmt.Printf("xml : %s\n", string(xbyt))
-
+	opts, _ := client.Options([]string{"AAPL"})
+	fmt.Printf("Options are: %v\n", opts)
 }

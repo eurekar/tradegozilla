@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 	"github.com/hailiang/gosocks"
 )
 
@@ -26,7 +27,7 @@ type Config struct {
 
 type AuthResponse struct {
 	Token string `json:"token"`
-	UserId int `json:"userId"`
+	UserId int64 `json:"userId"`
 }
 
 type QuoteRequest struct {
@@ -62,8 +63,8 @@ type QuoteItem struct {
 	ClosingMark QuotePrice`xml:"closingMark"`
 	HighPrice QuotePrice`xml:"highPrice"`
 	ImpliedVolatility float64 `xml:"impliedVolatility"`
-	LastSize int `xml:"lastSize"`
-	LastTradeTimeMillis int `xml:"lastTradeTimeMillis"`
+	LastSize int64 `xml:"lastSize"`
+	LastTradeTimeMillis int64 `xml:"lastTradeTimeMillis"`
 	LastTradedPrice QuotePrice`xml:"lastTradedPrice"`
 	LowPrice QuotePrice`xml:"lowPrice"`
 	Mark QuotePrice`xml:"mark"`
@@ -71,24 +72,24 @@ type QuoteItem struct {
 	MarkChangePrice QuotePrice`xml:"markChangePrice"`
 	OpenPrice QuotePrice`xml:"openPrice"`
 	Symbol string `xml:"symbol"`
-	Volume int `xml:"volume"`
+	Volume int64 `xml:"volume"`
 	YearHighPrice QuotePrice`xml:"yearHighPrice"`
 	YearLowPrice QuotePrice`xml:"yearLowPrice"`
 	DivType string `xml:"divType"`
 	Dividend QuotePrice `xml:"dividend"`
-	DividendDate int `xml:"dividendDate"`
+	DividendDate int64 `xml:"dividendDate"`
 	ExtLastTradedPrice QuotePrice `xml:"extLastTradedPrice"`
 	InstrumentType string `xml:"instrumentType"`
 	PreviousClosePrice QuotePrice `xml:"previousClosePrice"`
-	SaleTradeTimeMillis int `xml:"saleTradeTimeMillis"`
-	TradeCondition int `xml:"tradeCondition"`
+	SaleTradeTimeMillis int64 `xml:"saleTradeTimeMillis"`
+	TradeCondition int64 `xml:"tradeCondition"`
 }
 
 type QuoteOptionItem struct {
 	XMLName xml.Name `xml:"item"`
-	Order int `xml:"order"`
+	Order int64 `xml:"order"`
 	AddFlag string `xml:"addFlag"`
-	DaysToExpire int `xml:"daysToExpire"`
+	DaysToExpire int64 `xml:"daysToExpire"`
 	ExpiryLabel string `xml:"expiryLabel"`
 	ExpiryType string `xml:"expiryType"`
 	OptionCollection []QuoteOptionStrikePair `xml:"option_Collection"`
@@ -109,26 +110,26 @@ type QuoteOption struct {
 	ExpireType string `xml:"expireType"`
 	ExpiryDeliverable string `xml:"expiryDeliverable"`
 	Instrument QuoteInstrument `xml:"instrument"`
-	InstrumentId int `xml:"instrumentId"`
+	InstrumentId int64 `xml:"instrumentId"`
 	MinimumTickValue1 float64 `xml:"minimumTickValue1"`
 	MinimumTickValue2 float64 `xml:"minimumTickValue2"`
-	Multiplier int `xml:"multiplier"`
+	Multiplier int64 `xml:"multiplier"`
 	OpraRoot string `xml:"opraRoot"`
 	ReutersInstrumentCode string `xml:"reutersInstrumentCode"`
-	SharesPerContract int `xml:"sharesPerContract"`
+	SharesPerContract int64 `xml:"sharesPerContract"`
 	StrikePrice float64 `xml:"strikePrice"`
 	Symbol string `xml:"symbol"`
 }
 
 type QuoteInstrument struct {
-	DaysToExpire int `xml:"daysToExpire"`
+	DaysToExpire int64 `xml:"daysToExpire"`
 	EasyToBorrow bool `xml:"easyToBorrow"`
 	ExchangeCode string `xml:"exchangeCode"`
 	ExchangeType string `xml:"exchangeType"`
 	ExerciseStyle string `xml:"exerciseStyle"`
 	ExpireDay int `xml:"expireDay"`
 	ExpireDayET int `xml:"expireDayET"`
-	InstrumentId int `xml:"instrumentId"`
+	InstrumentId int64 `xml:"instrumentId"`
 	InstrumentSubType string `xml:"instrumentSubType"`
 	InstrumentType string `xml:"instrumentType"`
 	MinimumTickValue1 float64 `xml:"minimumTickValue1"`
@@ -142,17 +143,58 @@ type QuoteInstrument struct {
 	StrikePrice float64 `xml:"strikePrice"`
 	Symbol string `xml:"symbol"`
 	Tradeable bool `xml:"tradeable"`
-	UnderlyingInstrumentId int `xml:"underlyingInstrumentId"`
+	UnderlyingInstrumentId int64 `xml:"underlyingInstrumentId"`
 	UnderlyingSymbol string `xml:"underlyingSymbol"`
 	Year int `xml:"year"`
 }
+
 type MonsterClient struct {
 	client *http.Client
 	config *Config
 	account *AuthResponse
 }
 
+func (q QuoteInstrument) ExpiryDate() time.Time {
+	location, _ := time.LoadLocation("America/New_York")
+	return time.Date(q.Year, time.Month(q.Month), q.ExpireDayET, 16, 0, 0, 0, location)
+}
+
+func (m MonsterClient) InitConfig() (error) {
+	m.config.SocksProxyAddress = os.Getenv("SOCKS_PROXY_ADDR")
+	m.config.Username = os.Getenv("MONSTER_USER")
+	m.config.Password = os.Getenv("MONSTER_PASS")
+	m.config.APIHost = os.Getenv("MONSTER_HOST")
+	m.config.SourceApp = os.Getenv("MONSTER_SOURCEAPP")
+	return nil
+}
+
+func (m MonsterClient) InitHTTPClient() (error) {
+	dialSocksProxy := socks.DialSocksProxy(socks.SOCKS5, m.config.SocksProxyAddress)
+	transport := &http.Transport{
+		Dial: dialSocksProxy,
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	options := cookiejar.Options{}
+	jar, err := cookiejar.New(&options)
+	if err != nil {
+		log.Fatal(err)
+	}
+	m.client.Transport = transport
+	m.client.Jar = jar
+	return nil
+}
+func (m MonsterClient) NewClient() (client *MonsterClient, err error) {
+	client = &MonsterClient{}
+	client.config = &Config{}
+	client.client = &http.Client{}
+	client.account = &AuthResponse{}
+	client.InitConfig()
+	client.InitHTTPClient()
+	return client, nil
+}
+
 func (m MonsterClient) Auth() bool {
+	fmt.Printf("url is: %s", m.config)
 	data := url.Values{"j_username":{m.config.Username}, "j_password":{m.config.Password}}
 	req_url := strings.Join([]string{"https://", m.config.APIHost, "/j_acegi_security_check"}, "")
 	req, err := http.NewRequest("POST", req_url, bytes.NewBufferString(data.Encode()))
@@ -215,8 +257,9 @@ func (m MonsterClient) Quote(symbol string) (quotes []QuoteItem, err error) {
 
 func (m MonsterClient) Options(symbols []string) (options []QuoteOption, err error) {
 	var optData OptionChainRequest
-	optData.Symbols = append(optData.Symbols, "IBM")
-	optData.Symbols = append(optData.Symbols, "AAPL")
+	for _, symbol := range symbols {
+		optData.Symbols = append(optData.Symbols, symbol)
+	}
 	// TODO: Handle errors
 	opayload, err := xml.Marshal(optData)
 	//fmt.Printf("Option request payload is: %s", opayload)
@@ -231,37 +274,13 @@ func (m MonsterClient) Options(symbols []string) (options []QuoteOption, err err
 	    options = append(options, strikePair.Put)
 	  }
 	}
-	// TODO: Handle errors
-	//xbyt, _ := xml.Marshal(col)
 	return options, nil
 }
 
 func main() {
-	config := Config{}
-	config.SocksProxyAddress = os.Getenv("SOCKS_PROXY_ADDR")
-	config.Username = os.Getenv("MONSTER_USER")
-	config.Password = os.Getenv("MONSTER_PASS")
-	config.APIHost = os.Getenv("MONSTER_HOST")
-	config.SourceApp = os.Getenv("MONSTER_SOURCEAPP")
-
-
-	dialSocksProxy := socks.DialSocksProxy(socks.SOCKS5, config.SocksProxyAddress)
-	transport := &http.Transport{
-		Dial: dialSocksProxy,
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	options := cookiejar.Options{
-			    }
-	jar, err := cookiejar.New(&options)
-	if err != nil {
-		log.Fatal(err)
-	}
-	client := MonsterClient{
-		client: &http.Client{Transport: transport, Jar: jar},
-		config: &config,
-		account: &AuthResponse{},
-	}
+	client, _ := MonsterClient{}.NewClient()
 	client.Auth()
 	opts, _ := client.Options([]string{"AAPL"})
-	fmt.Printf("Options are: %v\n", opts)
+	fmt.Printf("Date are: %s\n", opts[0].Instrument.ExpireDayET)
+	fmt.Printf("Options are: %s\n", len(opts))
 }

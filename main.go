@@ -1,4 +1,4 @@
-package main
+package tradegozilla
 
 import (
 	"bytes"
@@ -275,12 +275,4 @@ func (m MonsterClient) Options(symbols []string) (options []QuoteOption, err err
 	  }
 	}
 	return options, nil
-}
-
-func main() {
-	client, _ := MonsterClient{}.NewClient()
-	client.Auth()
-	opts, _ := client.Options([]string{"AAPL"})
-	fmt.Printf("Date are: %s\n", opts[0].Instrument.ExpireDayET)
-	fmt.Printf("Options are: %s\n", len(opts))
 }

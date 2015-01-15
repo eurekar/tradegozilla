@@ -1,12 +1,47 @@
 # Trade Go-zilla
 
+A Go-based API client for the [TradeMonster](https://www.trademonster.com) API.
+
 ## Getting Started
 
 ### Installation
 
+Add the appropriate import entry to you project:
+
+```go
+import (
+    "github.com/glenngillen/tradegozilla"
+)
+```
+
+And then run `go get`.
+
 ### Usage
 
+Here's a simple example to retrieve the quote information for "AAPL":
+
+```go
+func main() {
+    client, _ := tradegozilla.MonsterClient{}.NewClient()
+    client.Auth()
+    quote, _ := client.Quote([]string{"AAPL"})
+    fmt.Printf("Quote is: %s\n", quote)
+}
+```
+
+Right now there is **zero error-handling** :(. This is very much still a work in progress.
+
 ## Further Reading
+
+The official TradeMonster API documentation is appalling and every API call I've looked at so for
+is either documented incorrectly or incompletley. The officially recommended way to work out how to
+use the API is to use [Charles](http://www.charlesproxy.com) as a proxy server to [Man-in-the-middle](http://en.wikipedia.org/wiki/Man-in-the-middle_attack)
+yourself and reverse-engineer their entire trading platform yourself. Astounding for an API that requires
+you to deposit $30K to get access to it.
+
+As a result I've been trying to document generate [complete API documentation](http://trademonster.glenngillen.com) as I go, but
+can make no guarantees to it's accuracy or completeness as TradeMonster could change anything at any time without
+informing me.
 
 ## Compatibility
 

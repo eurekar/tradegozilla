@@ -36,10 +36,10 @@ Right now there is **zero error-handling** :(. This is very much still a work in
 The official TradeMonster API documentation is appalling and every API call I've looked at so for
 is either documented incorrectly or incompletley. The officially recommended way to work out how to
 use the API is to use [Charles](http://www.charlesproxy.com) as a proxy server to [Man-in-the-middle](http://en.wikipedia.org/wiki/Man-in-the-middle_attack)
-yourself and reverse-engineer their entire trading platform yourself. Astounding for an API that requires
+your session and reverse-engineer their entire trading platform yourself. Astounding for an API that requires
 you to deposit $30K to get access to it.
 
-As a result I've been trying to document generate [complete API documentation](http://trademonster.glenngillen.com) as I go, but
+As a result I've been trying to generate [complete API documentation](http://trademonster.glenngillen.com) as I go, but
 can make no guarantees to it's accuracy or completeness as TradeMonster could change anything at any time without
 informing me.
 
